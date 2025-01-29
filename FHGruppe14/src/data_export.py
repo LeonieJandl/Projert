@@ -1,20 +1,24 @@
+import os
 from typing import Optional
 
-import os
 from docx import Document
-from docx2pdf import convert #Artem
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
+from docx2pdf import convert  # Artem
 from matplotlib.figure import Figure
 
-#Artem
+
+# Artem
 def save_as_pdf(doc_path: str, output_dir: str):
     # Converting .docx -> .pdf
-    pdf_path = os.path.join(output_dir, os.path.splitext(os.path.basename(doc_path))[0] + ".pdf")
+    pdf_path = os.path.join(
+        output_dir, os.path.splitext(os.path.basename(doc_path))[0] + ".pdf"
+    )
     convert(doc_path, output_path=output_dir)
     print(f"PDF created: {pdf_path}")
 
-    return pdf_path # could be deleted
+    return pdf_path  # could be deleted
+
 
 def create_report_template():
     # Ensure templates directory exists
@@ -54,6 +58,7 @@ def create_report_template():
 def insert_content(
     content_dict: dict[str, str],
     image: Figure,
+    idx: int,
     template_path: Optional[str] = r".\templates\report_template.docx",
 ) -> str:
     """
@@ -63,9 +68,14 @@ def insert_content(
     and values containing the text and image paths
     """
     doc = Document(template_path)
-    
+
     # Define placeholders to be replaced, needed for validation
-    placeholders = ["[week]", "[wochenbericht]", "[vergleichzurvorherigenwoche]", "[image]"]
+    placeholders = [
+        "[week]",
+        "[wochenbericht]",
+        "[vergleichzurvorherigenwoche]",
+        "[image]",
+    ]
     replaced_placeholders = set()
 
     # Replace the week placeholder in title
@@ -98,6 +108,7 @@ def insert_content(
             doc.add_picture("temp_plot.png", width=Inches(6))  # Adjust width as needed
             # Remove temporary file
             import os
+
             os.remove("temp_plot.png")
             replaced_placeholders.add("[image]")
 
@@ -105,13 +116,15 @@ def insert_content(
     missing_placeholders = set(placeholders) - replaced_placeholders
     if missing_placeholders:
         # If not all placeholders were replaced, raise an error
-        raise ValueError(f"The following placeholders were not replaced: {missing_placeholders}")
+        raise ValueError(
+            f"The following placeholders were not replaced: {missing_placeholders}"
+        )
 
     # Save the final document
-    doc.save("report_final.docx")
+    doc.save(f"report_final_{idx}.docx")
 
     # Save the final document as PDF
-    doc_path = "report_final.docx"
+    doc_path = f"report_final_{idx}.docx"
     # Get the current working directory
     output_dir = os.getcwd()
     # Save the PDF file
@@ -122,7 +135,7 @@ def insert_content(
         raise FileNotFoundError(f"Failed to create PDF file at: {pdf_path}")
 
     # Remove the temporary Word document
-    os.remove("report_final.docx")
+    os.remove(f"report_final_{idx}.docx")
 
     # Open the PDF file
     os.startfile(pdf_path)
