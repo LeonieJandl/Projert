@@ -57,44 +57,72 @@ def insert_content(
     template_path: Optional[str] = r".\templates\report_template.docx",
 ) -> str:
     """
-    Insert actual content into the template
+    Insert actual content into the template and validate replacements
 
     content_dict should be a dictionary with keys matching section names
     and values containing the text and image paths
     """
     doc = Document(template_path)
+    
+    # Define placeholders to be replaced, needed for validation
+    placeholders = ["[week]", "[wochenbericht]", "[vergleichzurvorherigenwoche]", "[image]"]
+    replaced_placeholders = set()
 
     # Replace the week placeholder in title
     for paragraph in doc.paragraphs:
         if "[week]" in paragraph.text:
             for run in paragraph.runs:
                 run.text = run.text.replace("[week]", content_dict.get("week", ""))
+                replaced_placeholders.add("[week]")
 
     # Replace content placeholders
     for paragraph in doc.paragraphs:
         if "[wochenbericht]" in paragraph.text:
             paragraph.text = content_dict.get("Wochenbericht", "")
+            replaced_placeholders.add("[wochenbericht]")
         elif "[vergleichzurvorherigenwoche]" in paragraph.text:
             paragraph.text = content_dict.get("Vergleich zur vorherigen Woche", "")
+            replaced_placeholders.add("[vergleichzurvorherigenwoche]")
 
         # Replace image placeholder with actual image
         if "[image]" in paragraph.text:
             paragraph.text = ""  # Clear the placeholder text
             # Save the matplotlib figure to a temporary file
-            image.savefig("temp_plot.png")
+            try:
+                # Try to save the image to a temporary file
+                image.savefig("temp_plot.png")
+            except Exception as e:
+                # If the image cannot be saved, raise an error
+                raise ValueError(f"Error creating image for report: {e}")
             # Add the image to the document
             doc.add_picture("temp_plot.png", width=Inches(6))  # Adjust width as needed
             # Remove temporary file
             import os
-
             os.remove("temp_plot.png")
+            replaced_placeholders.add("[image]")
 
-   #Artem
+    # Validate that all placeholders were replaced
+    missing_placeholders = set(placeholders) - replaced_placeholders
+    if missing_placeholders:
+        # If not all placeholders were replaced, raise an error
+        raise ValueError(f"The following placeholders were not replaced: {missing_placeholders}")
+
+    # Save the final document
     doc.save("report_final.docx")
 
+    # Save the final document as PDF
     doc_path = "report_final.docx"
+    # Get the current working directory
     output_dir = os.getcwd()
+    # Save the PDF file
     pdf_path = save_as_pdf(doc_path, output_dir)
 
+    # Validate PDF creation
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"Failed to create PDF file at: {pdf_path}")
+
+    # Remove the temporary Word document
     os.remove("report_final.docx")
+
+    # Open the PDF file
     os.startfile(pdf_path)
