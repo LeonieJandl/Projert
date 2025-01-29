@@ -8,19 +8,26 @@ from docx2pdf import convert  # Artem
 from matplotlib.figure import Figure
 
 
-# Artem
-def save_as_pdf(doc_path: str, output_dir: str):
-    # Converting .docx -> .pdf
+def save_as_pdf(doc_path: str, output_dir: str) -> str:
+    """
+    Converts a Word document to PDF format and saves it in the specified directory.
+    Returns the path to the created PDF file.
+    """
     pdf_path = os.path.join(
         output_dir, os.path.splitext(os.path.basename(doc_path))[0] + ".pdf"
     )
     convert(doc_path, output_path=output_dir)
     print(f"PDF created: {pdf_path}")
 
-    return pdf_path  # could be deleted
+    return pdf_path
 
 
-def create_report_template():
+def create_report_template() -> None:
+    """
+    Creates a standardized Word document template for weekly reports.
+    The template includes placeholders for the week number, weekly report content,
+    comparison with previous week, and a chart/image.
+    """
     # Ensure templates directory exists
     templates_dir = os.path.join(".", "templates")
     if not os.path.exists(templates_dir):
@@ -35,7 +42,7 @@ def create_report_template():
     title_run.font.size = Pt(16)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # Add sections with placeholder text
+    # Define main report sections with placeholder text
     sections = [
         "Wochenbericht",
         "Vergleich zur vorherigen Woche",
@@ -45,10 +52,9 @@ def create_report_template():
         doc.add_heading(section, level=2)
         doc.add_paragraph(f"[{section.lower().replace(' ', '')}]")
 
-    # Add placeholder for potential images
+    # Add placeholder for chart/visualization
     doc.add_paragraph("[image]").alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # Use os.path.join to build the save path correctly
     template_path = os.path.join(templates_dir, "report_template.docx")
     doc.save(template_path)
 
@@ -62,14 +68,24 @@ def insert_content(
     template_path: Optional[str] = r".\templates\report_template.docx",
 ) -> str:
     """
-    Insert actual content into the template and validate replacements
+    Populates the report template with actual content and generates both DOCX and PDF versions.
 
-    content_dict should be a dictionary with keys matching section names
-    and values containing the text and image paths
+    Args:
+        content_dict: Dictionary containing report content, with keys matching section names
+        image: Matplotlib figure to be included in the report
+        idx: Unique identifier for the report
+        template_path: Path to the report template file
+
+    Returns:
+        str: Path to the generated PDF file
+
+    Raises:
+        ValueError: If any placeholders remain unreplaced or if image creation fails
+        FileNotFoundError: If PDF generation fails
     """
     doc = Document(template_path)
 
-    # Define placeholders to be replaced, needed for validation
+    # Track placeholder replacements to ensure completeness
     placeholders = [
         "[week]",
         "[wochenbericht]",
@@ -78,14 +94,14 @@ def insert_content(
     ]
     replaced_placeholders = set()
 
-    # Replace the week placeholder in title
+    # Update the week number in the report title
     for paragraph in doc.paragraphs:
         if "[week]" in paragraph.text:
             for run in paragraph.runs:
                 run.text = run.text.replace("[week]", content_dict.get("week", ""))
                 replaced_placeholders.add("[week]")
 
-    # Replace content placeholders
+    # Replace content section placeholders with actual content
     for paragraph in doc.paragraphs:
         if "[wochenbericht]" in paragraph.text:
             paragraph.text = content_dict.get("Wochenbericht", "")
@@ -94,48 +110,37 @@ def insert_content(
             paragraph.text = content_dict.get("Vergleich zur vorherigen Woche", "")
             replaced_placeholders.add("[vergleichzurvorherigenwoche]")
 
-        # Replace image placeholder with actual image
+        # Handle chart/visualization placement
         if "[image]" in paragraph.text:
-            paragraph.text = ""  # Clear the placeholder text
-            # Save the matplotlib figure to a temporary file
+            paragraph.text = ""
             try:
-                # Try to save the image to a temporary file
                 image.savefig("temp_plot.png")
             except Exception as e:
-                # If the image cannot be saved, raise an error
                 raise ValueError(f"Error creating image for report: {e}")
-            # Add the image to the document
-            doc.add_picture("temp_plot.png", width=Inches(6))  # Adjust width as needed
-            # Remove temporary file
-            import os
 
+            doc.add_picture("temp_plot.png", width=Inches(6))
             os.remove("temp_plot.png")
             replaced_placeholders.add("[image]")
 
-    # Validate that all placeholders were replaced
+    # Ensure all placeholders were successfully replaced
     missing_placeholders = set(placeholders) - replaced_placeholders
     if missing_placeholders:
-        # If not all placeholders were replaced, raise an error
         raise ValueError(
             f"The following placeholders were not replaced: {missing_placeholders}"
         )
 
-    # Save the final document
-    doc.save(f"report_final_{idx}.docx")
-
-    # Save the final document as PDF
+    # Generate final documents
     doc_path = f"report_final_{idx}.docx"
-    # Get the current working directory
+    doc.save(doc_path)
+
     output_dir = os.getcwd()
-    # Save the PDF file
     pdf_path = save_as_pdf(doc_path, output_dir)
 
-    # Validate PDF creation
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"Failed to create PDF file at: {pdf_path}")
 
-    # Remove the temporary Word document
-    os.remove(f"report_final_{idx}.docx")
+    # Clean up temporary Word document
+    os.remove(doc_path)
 
-    # Open the PDF file
+    # Open the generated PDF
     os.startfile(pdf_path)
