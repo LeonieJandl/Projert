@@ -1,5 +1,6 @@
 #Artem
 import os
+import time
 from matplotlib.figure import Figure
 from typing import Optional
 
@@ -9,6 +10,7 @@ from src.dataloader import load_data
 
 
 def prepare_report(data_path: Optional[str]):
+    start = time.time()
     create_report_template()
     unproccessed_data = load_data(data_path)
     proccessed_data = prepare_data(unproccessed_data)
@@ -72,3 +74,4 @@ Gleichzeitig ist der Anteil der beschädigten Ware um {Beschädigte_Ware_Prozent
 
         # Insert content for each week
         insert_content(content_dict=content_dict, image=figures[idx-1], idx=idx)
+        print(f"Zeit: {time.time()-start}")
